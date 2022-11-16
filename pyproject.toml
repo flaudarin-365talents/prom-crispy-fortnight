@@ -1,0 +1,37 @@
+[tool.poetry]
+name = "monitoring"
+version = "0.0.0"
+description = "Prometheus based monitoring + stats"
+authors = ["Frédéric Laudarin <frederic.laudarin@365talents.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+jupyterlab = "^3.5.0"
+prometheus-api-client = "^0.5.2"
+matplotlib = "^3.6.2"
+numpy = "^1.23.4"
+ipympl = "^0.9.2"
+
+[tool.poetry.group.dev.dependencies]
+black = "^22.10.0"
+flake8 = "^5.0.4"
+isort = "^5.10.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+addopts = "-vv"
+testpaths = [
+  "tests",
+]
+
+[tool.black]
+line-length = 120
+
+[tool.isort]
+# make it compatible with black
+line_length = 120
+profile = "black"

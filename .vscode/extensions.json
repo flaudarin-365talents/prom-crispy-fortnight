@@ -1,0 +1,8 @@
+{
+    "recommendations": [
+        "ms-python.python",
+        "esbenp.prettier-vscode",
+        "be5invis.toml",
+        "njpwerner.autodocstring"
+    ]
+}
