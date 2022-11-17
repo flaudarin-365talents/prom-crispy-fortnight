@@ -1,15 +1,15 @@
 import sys
-from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
 
 import numpy as np
-import orjson
 from dateutil import tz
 from prometheus_api_client import PrometheusConnect
 from prometheus_api_client.exceptions import PrometheusApiClientException
 from prometheus_api_client.utils import parse_datetime
+
+from time_series import TimeSeries
 
 # Maximal number of days that can be queried with a minimal timestep of 30s
 PROM_MAX_DAYS = 3
@@ -20,29 +20,17 @@ class PromUsageService:
         CPU_LOAD = "cpu load"
         MEMORY = "memory"
 
-    @dataclass
-    class TimeSeries:
-        name: str
-        resource: np.ndarray
-        time: list[datetime]
-
-        def to_json(self) -> bytes:
-            return orjson.dumps(
-                {"name": self.name, "resource": self.resource, "time": self.time},
-                option=orjson.OPT_SERIALIZE_NUMPY,
-            )
-
     def __init__(self, cluster="preprod", workload="analyzer-worker-data") -> None:
         self._cluster = cluster
         self._workload = workload
         self._url = f"http://prometheus-{self._cluster}.int.365talents.com"
         self._prom_api_service = PrometheusConnect(url=self._url)
         # For caching the last data extraction
-        self._data_cache: PromUsageService.TimeSeries | None = None
+        self._data_cache: TimeSeries | None = None
 
     def query(
         self, start: int, end: int = 0, step: int = 30, metric: "PromUsageService.Metrics" = Metrics.CPU_LOAD
-    ) -> "PromUsageService.TimeSeries":
+    ) -> "TimeSeries":
         prom_ql_query = f"""
         sum(
           node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate{{namespace="default"}}
@@ -104,7 +92,7 @@ class PromUsageService:
         # Casts to C-contiguous array for preventing orsjon to complain while serializing
         cpu_usage = np.ascontiguousarray(data[:, 1])
 
-        self._data_cache = PromUsageService.TimeSeries(name=metric.value, resource=cpu_usage, time=time_steps)
+        self._data_cache = TimeSeries(name=metric.value, resource=cpu_usage, time=time_steps)
 
         return self._data_cache
 
