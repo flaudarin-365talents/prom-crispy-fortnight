@@ -1,0 +1,37 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+exclude: ^data-management/frontend/
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v3.2.0
+    hooks:
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: check-ast
+      - id: check-json
+        exclude: \.vscode/\w+\.json
+      - id: trailing-whitespace
+        types: [python]
+      - id: end-of-file-fixer
+        types: [python, json, yaml]
+  - repo: local
+    hooks:
+      - id: clear-notebooks-output
+        name: clear-notebooks-output
+        entry: clear-notebooks-output.sh
+        language: script
+        types: ["jupyter"]
+  - repo: https://github.com/ambv/black
+    rev: 22.8.0
+    hooks:
+      - id: black
+  - repo: https://gitlab.com/pycqa/flake8
+    rev: 5.0.4
+    hooks:
+      - id: flake8
+  - repo: https://github.com/timothycrosley/isort
+    rev: 5.10.1
+    hooks:
+      - id: isort
