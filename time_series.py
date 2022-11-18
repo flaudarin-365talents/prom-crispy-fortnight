@@ -31,5 +31,6 @@ class TimeSeries:
         data_dict["time"] = [
             datetime.strptime(datetime_val, "%Y-%m-%dT%H:%M:%S%z") for datetime_val in data_dict["time"]
         ]
+        data_dict["resource"] = np.array(data_dict["resource"])
 
         return TimeSeries(**data_dict)
