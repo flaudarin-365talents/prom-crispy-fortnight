@@ -1,5 +1,9 @@
-from stats import smoothing
+from stats import peaks, smoothing
 from time_series import TimeSeries
+
+
+class StatsServiceError(Exception):
+    ...
 
 
 class StatsService:
@@ -32,3 +36,10 @@ class StatsService:
         if self.time_series:
             self.time_series.resource[self.time_series.resource < threshold] = 0.0
         return self
+
+    def get_peaks(self):
+        if self.time_series is None:
+            raise StatsServiceError("Missing a stored time series")
+
+        peaks_indices = peaks.find(self.time_series)
+        return peaks.Statistics(time_series=self.time_series, indices=peaks_indices)
