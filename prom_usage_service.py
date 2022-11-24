@@ -18,7 +18,7 @@ PROM_MAX_DAYS = 3
 class PromUsageService:
     class Metrics(Enum):
         CPU_LOAD = "cpu load"
-        MEMORY = "memory"
+        MEMORY_MIB = "memory MiB"
 
     def __init__(self, cluster="preprod", workload="analyzer-worker-data") -> None:
         self._cluster = cluster
@@ -27,22 +27,45 @@ class PromUsageService:
         self._prom_api_service = PrometheusConnect(url=self._url)
         # For caching the last data extraction
         self._data_cache: TimeSeries | None = None
+        self._data_metric: PromUsageService.Metrics | None = None
+
+    def _get_promql_query(self, metric: "PromUsageService.Metrics"):
+        promql_queries = {
+            PromUsageService.Metrics.CPU_LOAD: f"""
+            sum(
+              node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate{{namespace="default"}}
+              * on(namespace,pod)
+              group_left(workload, workload_type)
+              namespace_workload_pod:kube_pod_owner:relabel{{
+                namespace="default",
+                workload="{self._workload}"
+              }}
+            ) by (workload, workload_type)
+            """,
+            PromUsageService.Metrics.MEMORY_MIB: f"""
+            sum(
+              container_memory_working_set_bytes{{
+                namespace="default",
+                container!="",
+                image!="",
+                metrics_path="/metrics/cadvisor"
+              }}
+              * on(namespace, pod)
+              group_left(workload, workload_type)
+              namespace_workload_pod:kube_pod_owner:relabel{{
+                namespace="default",
+                workload_type="statefulset",
+                workload="{self._workload}"
+              }}
+            ) by (workload, workload_type)
+            """,
+        }
+        return promql_queries[metric]
 
     def query(
         self, start: int, end: int = 0, step: int = 30, metric: "PromUsageService.Metrics" = Metrics.CPU_LOAD
     ) -> "TimeSeries":
-        prom_ql_query = f"""
-        sum(
-          node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate{{namespace="default"}}
-          * on(namespace,pod)
-          group_left(workload, workload_type) namespace_workload_pod:kube_pod_owner:relabel{{
-            namespace="default",
-            workload="{self._workload}"
-          }}
-        ) by (workload, workload_type)
-        """
-        if metric is not PromUsageService.Metrics.CPU_LOAD:
-            raise NotImplementedError(f"Data extraction for metrics {metric} is not implemented")
+        prom_ql_query = self._get_promql_query(metric)
 
         # List of bounds of queries: starts with 1 one query
         query_plan = [(start, end)]
@@ -90,9 +113,12 @@ class PromUsageService:
         tzone = tz.gettz("Etc/GMT-3")
         time_steps = [datetime.fromtimestamp(step, tz=tzone) for step in data[:, 0]]
         # Casts to C-contiguous array for preventing orsjon to complain while serializing
-        cpu_usage = np.ascontiguousarray(data[:, 1])
+        metric_values = np.ascontiguousarray(data[:, 1])
 
-        self._data_cache = TimeSeries(name=metric.value, resource=cpu_usage, time=time_steps)
+        if metric == PromUsageService.Metrics.MEMORY_MIB:
+            metric_values *= 2**-20
+
+        self._data_cache = TimeSeries(name=metric.value, resource=metric_values, time=time_steps)
 
         return self._data_cache
 
