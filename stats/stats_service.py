@@ -1,4 +1,5 @@
 from stats import peaks, smoothing
+from stats.base import percentiles
 from time_series import TimeSeries
 
 
@@ -37,7 +38,10 @@ class StatsService:
             self.time_series.resource[self.time_series.resource < threshold] = 0.0
         return self
 
-    def get_peaks(self):
+    def percentiles(self, *percents: float) -> list[float]:
+        return percentiles(sample=self.time_series.resource, percents=percents)
+
+    def get_peaks(self) -> peaks.Statistics:
         if self.time_series is None:
             raise StatsServiceError("Missing a stored time series")
 
