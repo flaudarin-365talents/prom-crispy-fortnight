@@ -1,26 +1,28 @@
 [tool.poetry]
-name = "monitoring"
-version = "0.0.0"
-description = "Prometheus based monitoring + stats"
 authors = ["Frédéric Laudarin <frederic.laudarin@365talents.com>"]
+description = "Prometheus based monitoring + stats"
+name = "prom-crispy"
 readme = "README.md"
+version = "0.0.0"
 
 [tool.poetry.dependencies]
-python = "^3.10"
 jupyterlab = "^3.5.0"
-prometheus-api-client = "^0.5.2"
 matplotlib = "^3.6.2"
 numpy = "^1.23.4"
-ipympl = "^0.9.2"
+orjson = "^3.8.1"
+prometheus-api-client = "^0.5.2"
+python = "^3.10"
 
 [tool.poetry.group.dev.dependencies]
 black = "^22.10.0"
 flake8 = "^5.0.4"
 isort = "^5.10.1"
+pre-commit = "^2.20.0"
+pytest = "^7.2.0"
 
 [build-system]
-requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core"]
 
 [tool.pytest.ini_options]
 addopts = "-vv"

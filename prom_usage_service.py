@@ -1,5 +1,7 @@
-from dataclasses import dataclass
+import sys
 from datetime import datetime
+from enum import Enum
+from pathlib import Path
 
 import numpy as np
 from dateutil import tz
@@ -7,23 +9,28 @@ from prometheus_api_client import PrometheusConnect
 from prometheus_api_client.exceptions import PrometheusApiClientException
 from prometheus_api_client.utils import parse_datetime
 
+from time_series import TimeSeries
+
 # Maximal number of days that can be queried with a minimal timestep of 30s
 PROM_MAX_DAYS = 3
 
 
 class PromUsageService:
-    @dataclass
-    class TimeSeries:
-        time: list[datetime]
-        resource: np.ndarray
+    class Metrics(Enum):
+        CPU_LOAD = "cpu load"
+        MEMORY = "memory"
 
     def __init__(self, cluster="preprod", workload="analyzer-worker-data") -> None:
         self._cluster = cluster
         self._workload = workload
         self._url = f"http://prometheus-{self._cluster}.int.365talents.com"
         self._prom_api_service = PrometheusConnect(url=self._url)
+        # For caching the last data extraction
+        self._data_cache: TimeSeries | None = None
 
-    def query(self, start: int, end: int = 0, step: int = 30) -> "PromUsageService.TimeSeries":
+    def query(
+        self, start: int, end: int = 0, step: int = 30, metric: "PromUsageService.Metrics" = Metrics.CPU_LOAD
+    ) -> "TimeSeries":
         prom_ql_query = f"""
         sum(
           node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate{{namespace="default"}}
@@ -34,6 +41,9 @@ class PromUsageService:
           }}
         ) by (workload, workload_type)
         """
+        if metric is not PromUsageService.Metrics.CPU_LOAD:
+            raise NotImplementedError(f"Data extraction for metrics {metric} is not implemented")
+
         # List of bounds of queries: starts with 1 one query
         query_plan = [(start, end)]
 
@@ -44,7 +54,6 @@ class PromUsageService:
 
         while query_plan:
             queried_start_day, queried_end_day = query_plan.pop(0)
-            print("(queried_start_day, queried_end_day)", queried_start_day, queried_end_day)
             try:
                 res = self._prom_api_service.custom_query_range(
                     query=prom_ql_query,
@@ -68,7 +77,8 @@ class PromUsageService:
                 day_remainder = day_range % PROM_MAX_DAYS
                 if day_remainder > 0:
                     query_plan.append((day_end + day_remainder, day_end))
-                print(query_plan)
+                print(f"Split extraction into {len(query_plan)} chunks")
+            print(f"Remaining chunks to extract: {len(query_plan)}")
 
         # Aggregation of query results and extraction
         aggregated_results = []
@@ -79,6 +89,25 @@ class PromUsageService:
         # plot
         tzone = tz.gettz("Etc/GMT-3")
         time_steps = [datetime.fromtimestamp(step, tz=tzone) for step in data[:, 0]]
-        cpu_usage = data[:, 1]
+        # Casts to C-contiguous array for preventing orsjon to complain while serializing
+        cpu_usage = np.ascontiguousarray(data[:, 1])
 
-        return PromUsageService.TimeSeries(time=time_steps, resource=cpu_usage)
+        self._data_cache = TimeSeries(name=metric.value, resource=cpu_usage, time=time_steps)
+
+        return self._data_cache
+
+    def save_cache(self, path: str, overwrite=False):
+        save_path = Path(path)
+        if self._data_cache is None:
+            print("No cached data to save")
+            return
+
+        if save_path.is_file() and not overwrite:
+            sys.stderr.write(f"File {save_path} already exists")
+            sys.stderr.flush()
+            return
+
+        with save_path.open("wb") as binary_io:
+            binary_io.write(self._data_cache.to_json())
+
+        print(f"Saved cached data to:\n'{save_path.absolute()}'")
