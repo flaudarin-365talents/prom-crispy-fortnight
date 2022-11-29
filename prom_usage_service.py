@@ -54,7 +54,6 @@ class PromUsageService:
               group_left(workload, workload_type)
               namespace_workload_pod:kube_pod_owner:relabel{{
                 namespace="default",
-                workload_type="statefulset",
                 workload="{self._workload}"
               }}
             ) by (workload, workload_type)

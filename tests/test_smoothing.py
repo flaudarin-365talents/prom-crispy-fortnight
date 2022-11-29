@@ -1,29 +1,18 @@
-from datetime import datetime
-
 import numpy as np
 
+import time_series
 from stats import smoothing
 from time_series import TimeSeries
 
 
 def test_smooth_method_moving_average():
-    time_series = TimeSeries(
+    tseries = TimeSeries(
         name="test fixture",
-        time=[
-            datetime.strptime(dt_str, "%Y-%m-%dT%H:%M:%S%z")
-            for dt_str in (
-                "2022-11-04T14:34:00+03:00",
-                "2022-11-04T14:34:05+03:00",
-                "2022-11-04T14:34:10+03:00",
-                "2022-11-04T14:34:15+03:00",
-                "2022-11-04T14:34:20+03:00",
-            )
-        ],
+        time=time_series.gen_datetimes(step_sec=5, nb_step=5, start_datetime="2022-11-04T14:34:00+03:00"),
         resource=np.array([0, 2, -1, -2, 1]),
     )
-
     # Test expectation
     expected = [1, 1 / 3, -1 / 3, -2 / 3, -1 / 2]
 
-    smoothed_ts = smoothing.moving_average(time_series, window_size=3)
+    smoothed_ts = smoothing.moving_average(tseries, window_size=3)
     np.testing.assert_array_almost_equal_nulp(expected, smoothed_ts.resource, nulp=1)
