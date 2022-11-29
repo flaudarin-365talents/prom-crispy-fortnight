@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from time_series import TimeSeries
+from time_series.time_series import TimeSeries
 
 
 def find(time_series: TimeSeries):

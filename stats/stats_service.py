@@ -38,6 +38,12 @@ class StatsService:
             self.time_series.resource[self.time_series.resource < threshold] = 0.0
         return self
 
+    def mean(self, threshold: float | None = None):
+        if threshold is None:
+            return self.time_series.resource.mean()
+        else:
+            return self.time_series.resource.mean(where=self.time_series.resource >= threshold)
+
     def percentiles(self, *percents: float) -> list[float]:
         return percentiles(sample=self.time_series.resource, percents=percents)
 

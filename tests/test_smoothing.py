@@ -1,8 +1,8 @@
 import numpy as np
 
-import time_series
 from stats import smoothing
-from time_series import TimeSeries
+from time_series import time_series
+from time_series.time_series import TimeSeries
 
 
 def test_smooth_method_moving_average():

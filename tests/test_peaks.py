@@ -3,7 +3,7 @@ from datetime import datetime
 import numpy as np
 
 from stats import peaks
-from time_series import TimeSeries
+from time_series.time_series import TimeSeries
 
 
 def test_find_peaks():

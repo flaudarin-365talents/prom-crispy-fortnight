@@ -1,6 +1,5 @@
 import sys
 from datetime import datetime
-from enum import Enum
 from pathlib import Path
 
 import numpy as np
@@ -9,17 +8,14 @@ from prometheus_api_client import PrometheusConnect
 from prometheus_api_client.exceptions import PrometheusApiClientException
 from prometheus_api_client.utils import parse_datetime
 
-from time_series import TimeSeries
+from prometheus import Metrics
+from time_series.time_series import TimeSeries
 
 # Maximal number of days that can be queried with a minimal timestep of 30s
 PROM_MAX_DAYS = 3
 
 
-class PromUsageService:
-    class Metrics(Enum):
-        CPU_LOAD = "cpu load"
-        MEMORY_MIB = "memory MiB"
-
+class PromWorkloadUsageService:
     def __init__(self, cluster="preprod", workload="analyzer-worker-data") -> None:
         self._cluster = cluster
         self._workload = workload
@@ -27,11 +23,11 @@ class PromUsageService:
         self._prom_api_service = PrometheusConnect(url=self._url)
         # For caching the last data extraction
         self._data_cache: TimeSeries | None = None
-        self._data_metric: PromUsageService.Metrics | None = None
+        self._data_metric: Metrics | None = None
 
-    def _get_promql_query(self, metric: "PromUsageService.Metrics"):
+    def _get_promql_query(self, metric: "Metrics"):
         promql_queries = {
-            PromUsageService.Metrics.CPU_LOAD: f"""
+            Metrics.CPU_LOAD: f"""
             sum(
               node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate{{namespace="default"}}
               * on(namespace,pod)
@@ -42,7 +38,7 @@ class PromUsageService:
               }}
             ) by (workload, workload_type)
             """,
-            PromUsageService.Metrics.MEMORY_MIB: f"""
+            Metrics.MEMORY_MIB: f"""
             sum(
               container_memory_working_set_bytes{{
                 namespace="default",
@@ -61,9 +57,7 @@ class PromUsageService:
         }
         return promql_queries[metric]
 
-    def query(
-        self, start: int, end: int = 0, step: int = 30, metric: "PromUsageService.Metrics" = Metrics.CPU_LOAD
-    ) -> "TimeSeries":
+    def query(self, start: int, end: int = 0, step: int = 30, metric: Metrics = Metrics.CPU_LOAD) -> "TimeSeries":
         prom_ql_query = self._get_promql_query(metric)
 
         # List of bounds of queries: starts with 1 one query
@@ -81,7 +75,7 @@ class PromUsageService:
                     query=prom_ql_query,
                     start_time=parse_datetime(prom_time_format(queried_start_day)),
                     end_time=parse_datetime(prom_time_format(queried_end_day)),
-                    step=step,
+                    step=str(step),
                 )
                 query_results.append(res)
             except PrometheusApiClientException as err:
@@ -114,10 +108,10 @@ class PromUsageService:
         # Casts to C-contiguous array for preventing orsjon to complain while serializing
         metric_values = np.ascontiguousarray(data[:, 1])
 
-        if metric == PromUsageService.Metrics.MEMORY_MIB:
+        if metric == Metrics.MEMORY_MIB:
             metric_values *= 2**-20
 
-        self._data_cache = TimeSeries(name=metric.value, resource=metric_values, time=time_steps)
+        self._data_cache = TimeSeries(name=metric.value(), resource=metric_values, time=time_steps)
 
         return self._data_cache
 

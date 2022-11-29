@@ -2,7 +2,7 @@ from enum import Enum
 
 import numpy as np
 
-from time_series import TimeSeries
+from time_series.time_series import TimeSeries
 
 
 class Method(Enum):

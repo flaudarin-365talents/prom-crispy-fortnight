@@ -34,6 +34,7 @@ class TimeSeries:
         for index in deletion_indices:
             del self.time[index]
         self.resource = np.delete(self.resource, deletion_indices)
+        return self
 
     def to_json(self) -> bytes:
         return orjson.dumps(
